@@ -1,9 +1,10 @@
 /**
  * dsh-memory — browser half: the memory panel in the Plugins settings section.
  *
- * Registers a `settings.plugins.tab` page: stats row, add form, timeline list
- * with per-entry delete, and JSON export. All data goes through the hub's
- * `/memory/api/*` routes on the local web server.
+ * Registers a `settings.plugins.tab` page: stats row, labeled add form
+ * (type / scope / importance), timeline list with per-entry delete, and JSON
+ * export. All data goes through the hub's `/memory/api/*` routes on the local
+ * web server.
  *
  * @module dsh-memory/client
  */
@@ -22,6 +23,11 @@ const TYPE_LABEL = {
   semantic: '事实', episodic: '事件', procedural: '方法',
   preference: '偏好', insight: '洞察',
 }
+const SOURCE_LABEL = { panel: '面板', tool: '工具', extraction: '抽取' }
+const clamp01 = (value, fallback) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback
+}
 
 function MemoryPanel() {
   const [stats, setStats] = useState(null)
@@ -29,6 +35,7 @@ function MemoryPanel() {
   const [content, setContent] = useState('')
   const [type, setType] = useState('episodic')
   const [scope, setScope] = useState('user')
+  const [importance, setImportance] = useState('0.6')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,7 +60,9 @@ function MemoryPanel() {
       const res = await fetch(`${API}/remember`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content, type, scope, importance: 0.6 }),
+        body: JSON.stringify({
+          content, type, scope, importance: clamp01(importance, 0.6),
+        }),
       })
       const result = await res.json()
       setError(result.created === false ? '已合并到同内容记忆' : '')
@@ -87,31 +96,58 @@ function MemoryPanel() {
     URL.revokeObjectURL(url)
   }
 
+  const metaOf = (entry) => [
+    entry.scope,
+    `★${entry.importance}`,
+    ...(entry.unverified === true ? ['待验证'] : []),
+    ...(entry.access_count > 0 ? [`引用${entry.access_count}`] : []),
+    ...(entry.source?.agent ? [SOURCE_LABEL[entry.source.agent] ?? entry.source.agent] : []),
+    new Date(entry.created_at).toLocaleString(),
+  ].join(' · ')
+
   return h('div', { className: 'mem-panel' },
     h('div', { className: 'mem-row mem-head' },
       h('div', { className: 'mem-title' }, '记忆面板'),
-      h('button', { className: 'mem-btn', onClick: () => { void refresh() } }, '刷新'),
-      h('button', { className: 'mem-btn', onClick: () => { void exportAll() } }, '导出 JSON'),
+      h('div', { className: 'mem-actions' },
+        h('button', { className: 'mem-btn', onClick: () => { void refresh() } }, '刷新'),
+        h('button', { className: 'mem-btn', onClick: () => { void exportAll() } }, '导出 JSON'),
+      ),
     ),
     stats !== null && h('div', { className: 'mem-stats' },
       `共 ${stats.total} 条 · `,
       Object.entries(stats.byType ?? {}).map(([key, count]) =>
         `${TYPE_LABEL[key] ?? key} ${count}`).join(' · '),
     ),
-    h('div', { className: 'mem-row mem-form' },
+    h('div', { className: 'mem-form' },
       h('textarea', {
-        className: 'mem-input', rows: 2, placeholder: '写一条记忆…',
+        className: 'mem-input', rows: 3, placeholder: '写一条记忆…',
         value: content, onChange: (event) => setContent(event.target.value),
       }),
-      h('select', {
-        className: 'mem-select', value: type,
-        onChange: (event) => setType(event.target.value),
-      }, TYPES.map((t) => h('option', { key: t, value: t }, TYPE_LABEL[t]))),
-      h('input', {
-        className: 'mem-select', value: scope, placeholder: 'user 或 workspace:路径',
-        onChange: (event) => setScope(event.target.value),
-      }),
-      h('button', { className: 'mem-btn mem-btn-primary', disabled: busy, onClick: () => { void add() } }, busy ? '写入中…' : '记住'),
+      h('div', { className: 'mem-row mem-form-controls' },
+        h('label', { className: 'mem-field' },
+          h('span', { className: 'mem-label' }, '类型'),
+          h('select', {
+            className: 'mem-select', value: type,
+            onChange: (event) => setType(event.target.value),
+          }, TYPES.map((t) => h('option', { key: t, value: t }, TYPE_LABEL[t]))),
+        ),
+        h('label', { className: 'mem-field' },
+          h('span', { className: 'mem-label' }, '范围'),
+          h('input', {
+            className: 'mem-select', value: scope,
+            placeholder: 'user 或 workspace:路径',
+            onChange: (event) => setScope(event.target.value),
+          }),
+        ),
+        h('label', { className: 'mem-field mem-field-narrow' },
+          h('span', { className: 'mem-label' }, '重要性'),
+          h('input', {
+            className: 'mem-select', type: 'number', min: 0, max: 1, step: 0.1,
+            value: importance, onChange: (event) => setImportance(event.target.value),
+          }),
+        ),
+        h('button', { className: 'mem-btn mem-btn-primary', disabled: busy, onClick: () => { void add() } }, busy ? '写入中…' : '记住'),
+      ),
     ),
     error && h('div', { className: 'mem-error' }, error),
     h('div', { className: 'mem-list' },
@@ -122,9 +158,8 @@ function MemoryPanel() {
           className: `mem-item${entry.unverified === true ? ' mem-item-unverified' : ''}`,
         },
           h('span', { className: `mem-type mem-type-${entry.type}` }, TYPE_LABEL[entry.type] ?? entry.type),
-          h('span', { className: 'mem-content' }, entry.content),
-          h('span', { className: 'mem-meta' },
-            `${entry.scope} · ★${entry.importance}${entry.unverified === true ? ' · 待验证' : ''} · ${new Date(entry.created_at).toLocaleString()}`),
+          h('span', { className: 'mem-content', title: entry.id }, entry.content),
+          h('span', { className: 'mem-meta', title: metaOf(entry) }, metaOf(entry)),
           h('button', {
             className: 'mem-del', title: '删除（软删除）',
             onClick: () => { void forget(entry.id) },

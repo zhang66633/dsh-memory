@@ -7,16 +7,32 @@
 }
 .mem-row { display: flex; align-items: center; gap: 8px; }
 .mem-head { justify-content: space-between; }
+.mem-actions { display: flex; gap: 8px; }
 .mem-title { font-size: 14px; font-weight: 600; }
 .mem-stats { font-size: 12px; opacity: 0.8; }
-.mem-form { flex-wrap: wrap; }
+.mem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mem-form-controls { flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.mem-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mem-field-narrow { width: 96px; }
+.mem-label { font-size: 11px; opacity: 0.7; }
 .mem-input {
-  flex: 1 1 240px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 6px 8px;
   border: 1px solid var(--dsw-alias-border-l1, #888);
   border-radius: 4px;
   background: var(--dsw-alias-bg-layer-1, transparent);
   color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
+  resize: vertical;
 }
 .mem-select {
   padding: 6px 8px;
@@ -24,6 +40,7 @@
   border-radius: 4px;
   background: var(--dsw-alias-bg-layer-1, transparent);
   color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
 }
 .mem-btn {
   padding: 6px 12px;
@@ -32,6 +49,7 @@
   background: var(--dsw-alias-bg-layer-2, transparent);
   color: var(--dsw-alias-label-primary, inherit);
   cursor: pointer;
+  font: inherit;
 }
 .mem-btn-primary {
   border-color: transparent;
