@@ -75,7 +75,45 @@ async function main() {
   await memory.restore(first.id)
   assert.equal(records.get(first.id).tombstone, false)
 
-  assert.equal(routes.length, 5, 'panel API routes registered')
+  // P2 semantic fusion: no keyword overlap, only shared CJK bigrams decide
+  await memory.remember({ content: '伙伴喜欢喝咖啡', type: 'preference', importance: 0.9 })
+  await memory.remember({ content: '今天修了 BOM 的坑', type: 'episodic', importance: 0.9 })
+  const semantic = await memory.recall({ query: '偏好咖啡', topK: 10 })
+  const coffeeRank = semantic.hits.findIndex((entry) => entry.content === '伙伴喜欢喝咖啡')
+  const bomRank = semantic.hits.findIndex((entry) => entry.content === '今天修了 BOM 的坑')
+  assert.ok(coffeeRank !== -1 && bomRank !== -1)
+  assert.ok(coffeeRank < bomRank, 'semantic similarity ranks the related entry above the unrelated one')
+
+  // P2 graph fusion: entity co-occurrence density breaks the tie between
+  // two entries that both match the query entity dsh-memory
+  await memory.remember({ content: '在 dsh-memory 修了 BOM 的坑', type: 'episodic' })
+  await memory.remember({ content: 'dsh-memory 的面板加了三页签', type: 'episodic' })
+  const graphHits = await memory.recall({ query: 'dsh-memory', topK: 10 })
+  assert.equal(graphHits.hits[0].content, '在 dsh-memory 修了 BOM 的坑', 'graph density ranks the denser entry first')
+
+  // P2 archive: decayed entries leave the live set but stay recoverable
+  const aging = await memory.remember({ content: '陈年旧事', type: 'episodic', importance: 0.1 })
+  records.get(aging.id).last_accessed_at = Date.now() - 90 * 86400000 // three half-lives
+  const archivedResult = await memory.archiveBelow(0.05)
+  assert.ok(archivedResult.archived >= 1, 'archiveBelow flags decayed entries')
+  assert.equal(records.get(aging.id).archived, true)
+  const live = await memory.list({})
+  assert.ok(!live.some((entry) => entry.content === '陈年旧事'), 'archived entries leave the default listing')
+  const archivedList = await memory.list({ archived: true })
+  assert.ok(archivedList.some((entry) => entry.content === '陈年旧事'), 'archived listing includes them')
+  const recallLive = await memory.recall({ topK: 20 })
+  assert.ok(!recallLive.hits.some((entry) => entry.content === '陈年旧事'), 'recall skips archived entries')
+  await memory.unarchive(aging.id)
+  assert.equal(records.get(aging.id).archived, false, 'unarchive restores')
+  const statsAfter = await memory.stats()
+  assert.ok('archived' in statsAfter, 'stats reports the archived total')
+
+  // P2 graph data: bounded nodes/edges for the panel
+  const graphData = await memory.graphData()
+  assert.ok(Array.isArray(graphData.nodes) && Array.isArray(graphData.edges), 'graph data shape')
+  assert.ok(graphData.nodes.some((node) => node.text === 'dsh-memory'), 'shared entity appears in graph data')
+
+  assert.equal(routes.length, 7, 'panel API routes registered (stats/list/graph/remember/forget/unarchive/export)')
   console.log('hub-test: all assertions passed')
 }
 

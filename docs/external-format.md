@@ -46,6 +46,7 @@ json 后端（默认）把 `memory` 域写成**单个文件**：
 | `last_accessed_at` | number | 最近被召回时间（Unix 毫秒） |
 | `access_count` | number | 被召回次数 |
 | `tombstone` | boolean | true = 软删除（不参与召回，面板可恢复） |
+| `archived` | boolean | true = 已归档（评分衰减到阈值以下自动归档；不参与召回与默认列表，可恢复） |
 | `source` | object | 写入来源：`{ agent: "tool"\|"panel"\|"extraction", session?, turn?, at }` |
 
 检索得分（插件内部公式，外部实现可按需复刻）：

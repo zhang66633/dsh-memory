@@ -1,6 +1,6 @@
 # dsh-memory
 
-> DeepSeek Harness 高级共享记忆插件：可自选储存区（复用 DSH storage 域）· 跨会话/多智能体共享 · 评分/衰减/置信度记忆机制 · LLM 自动抽取 · 设置页可视化面板。
+> DeepSeek Harness 高级共享记忆插件：可自选储存区（复用 DSH storage 域）· 跨会话/多智能体共享 · 评分/衰减/置信度记忆机制 · LLM 自动抽取 · 语义检索 + 实体图谱 · 设置页可视化面板。
 
 ## Overview
 
@@ -10,9 +10,11 @@
 - **储存区自选**：数据走 DSH 原生 storage 域（`memory` 域），后端由 `dsh-storage-domain` 的路由配置决定（默认 json 于 `~/.dsh/storages`，可切 sqlite，见下文）；
 - **记忆机制**：五类记忆（事实/事件/方法/偏好/洞察）+ 重要性×置信度×遗忘曲线评分 + 写时去重 + 软删除；
 - **自动抽取（P1）**：每 N 回合结束后，用本机已配置的模型把回合浓缩成记忆候选——低于置信度门槛的丢弃，低于验证门槛的打「待验证」标记（检索分数折半）；被召回的条目 importance 缓慢抬升（用进废退）；
-- **可视化**：顶部环「记忆」页签（与「对话」「插件商店」并列，主面板）+ 设置 → 插件 →「记忆」页签（发现路径）——统计、带标签的写入表单（类型/范围/重要性）、时间线（含引用次数与写入来源）、增删、JSON 导出，待验证条目虚线标识。
+- **语义检索 + 实体图谱（P2）**：查询召回三路融合——记忆评分 × 字符 n-gram 语义相似（TF-IDF 余弦，纯 JS 零原生依赖）× 实体共现图谱加权；图谱同时可视化（面板力导向图，点实体看相关记忆）；
+- **记忆维护（P2）**：遗忘衰减到阈值自动**归档**（隐藏不删、可恢复）；每 N 回合后台 **反思**（LLM 从近期记忆蒸馏洞察）与**整合**（同一实体簇的事件记忆折叠成一条事实）；
+- **可视化**：顶部环「记忆」页签（与「对话」「插件商店」并列，主面板）+ 设置 → 插件 →「记忆」页签（发现路径）——时间线/图谱/归档三页签、带标签的写入表单、引用次数与写入来源、增删、JSON 导出，待验证条目虚线标识。
 
-**当前版本**：v0.2.1（P0 + P1 完成）——手动记忆 + 工具 + 动态上下文自动召回 + 面板 + LLM 自动抽取 + 重要性学习 + 外部 agent CLI 与格式文档。语义检索、图谱、反思等见路线图。
+**当前版本**：v0.3.0（P0–P2 完成）——手动记忆 + 工具 + 动态上下文召回 + 面板 + LLM 自动抽取 + 重要性学习 + 语义检索 + 实体图谱 + 归档/反思/整合 + 外部 agent CLI。HTTP/MCP 跨机共享见路线图 P3。
 
 ## Compatibility
 
@@ -54,7 +56,13 @@ cd ~/.dsh/profiles/web && pnpm install   # 重启 dsh web
 ```yaml
 # profile cordis.patch.yml 可覆盖默认值
 - id: memory-hub
-  config: { recallTopK: 5, recallBudget: 1500, importanceLearningRate: 0.01 }
+  config:
+    recallTopK: 5
+    recallBudget: 1500
+    importanceLearningRate: 0.01
+    semanticWeight: 0.6     # 召回融合：语义相似权重（0 关）
+    graphWeight: 0.4        # 召回融合：图谱加权（0 关）
+    archiveThreshold: 0.05  # 评分低于此阈值自动归档
 - id: memory-agent
   config:
     recallTopK: 5
@@ -69,6 +77,12 @@ cd ~/.dsh/profiles/web && pnpm install   # 重启 dsh web
       maxCandidates: 8       # 单次抽取最多写入的候选数
       timeoutMs: 60000       # 抽取调用超时
       maxTokens: 1024        # 抽取输出 token 上限
+    archiveEveryNTurns: 10     # 每 N 回合检查一次衰减归档（0 关）
+    reflectEveryNTurns: 10     # 每 N 回合后台反思生成洞察（0 关）
+    consolidateEveryNTurns: 20 # 每 N 回合后台整合实体簇事件记忆（0 关）
+    reflectMaxMemories: 30     # 反思输入条数
+    reflectMaxTokens: 1024     # 反思输出 token
+    consolidateMaxTokens: 1024 # 整合输出 token
     # 抽取路由：缺省复用会话的 request/header 路由；也可显式成对指定：
     provider: deepseek
     model: deepseek-chat
@@ -77,6 +91,10 @@ cd ~/.dsh/profiles/web && pnpm install   # 重启 dsh web
 - `importanceLearningRate`：被召回条目每次命中 importance 增加量（上限 1）；
 - `storage` 路由：改 `dsh-storage-domain` 行的 `routes: { memory: sqlite }` 可换后端；
 - 无环境变量、无敏感项。
+
+### 语义检索的技术决策（诚实说明）
+
+方案原计划用 sqlite-vec 做语义检索，P2 实际落地为**纯 JS 字符 n-gram 向量**（CJK 字级 bigram + 路径/标识符/版本整词，TF-IDF + 余弦）：DSH 的 sqlite 后端基于 `node:sqlite`（不支持加载 sqlite-vec 原生扩展）、Windows 无预编译保证，而 n-gram 方案零原生依赖、json/sqlite 后端通用、对中文效果良好。它是**词汇级语义**而非神经语义；P3 可加可插拔 embedding provider 平滑升级，调用方无需改动。
 
 ### 切换到 sqlite 后端
 
@@ -125,15 +143,14 @@ json 后端把整个 `memory` 域写成**单个文件** `~/.dsh/storages/memory.
 ```bash
 npm install
 npm run build        # 构建 lib/client.js（wire 格式）
-npm test             # 抽取管线 + 记忆服务 + 外部格式语义测试
+npm test             # 管线/记忆服务/外部格式/向量/图谱 五组行为测试
 npm run memory-cli   # 外部 agent CLI（list/recall/remember/...）
 npm run smoke        # node 半边加载冒烟
 ```
 
 ## Roadmap
 
-- P2：sqlite-vec 语义检索 + 轻量图谱 + consolidate/reflect/archive + 图谱可视化
-- P3：HTTP/MCP 服务模式（跨机/外部智能体）+ preset 集成
+- P3：HTTP/MCP 服务模式（跨机/外部智能体）+ 可插拔 embedding provider + preset 集成
 
 ## License & security
 

@@ -10,6 +10,53 @@
 .mem-actions { display: flex; gap: 8px; }
 .mem-title { font-size: 14px; font-weight: 600; }
 .mem-stats { font-size: 12px; opacity: 0.8; }
+.mem-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, #888);
+}
+.mem-tab {
+  padding: 6px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #888);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.mem-tab-active {
+  color: var(--dsw-alias-label-primary, inherit);
+  border-bottom-color: var(--dsw-alias-brand-primary, #4a6cf7);
+}
+.mem-graph-wrap { display: flex; flex-direction: column; gap: 10px; }
+.mem-graph {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--dsw-alias-border-l1, #888);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-1, transparent);
+}
+.mem-edge { stroke: var(--dsw-alias-border-l1, #888); stroke-width: 1; }
+.mem-node { cursor: pointer; }
+.mem-node circle {
+  fill: var(--dsw-alias-brand-primary, #4a6cf7);
+  opacity: 0.75;
+}
+.mem-node-active circle {
+  fill: var(--dsw-alias-state-warn-primary, #f76b15);
+  opacity: 1;
+}
+.mem-node-label {
+  fill: var(--dsw-alias-label-primary, inherit);
+  font-size: 9px;
+}
+.mem-graph-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mem-graph-title { font-size: 12px; font-weight: 600; }
 .mem-form {
   display: flex;
   flex-direction: column;
