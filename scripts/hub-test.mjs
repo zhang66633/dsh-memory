@@ -20,7 +20,8 @@ function makeDomain() {
   return { domain, records }
 }
 
-async function main() {
+/** Mount the hub over fresh mocked services; returns the service + effects. */
+function mountHub(config = {}, getFn = () => undefined) {
   const { domain, records } = makeDomain()
   const routes = []
   const provided = {}
@@ -33,9 +34,31 @@ async function main() {
     webServer: { register: (route) => { routes.push(route); return () => {} } },
     effect: (fn, label) => { void fn(); return () => {} },
     provide: (name, value) => { provided[name] = value },
+    get: getFn,
+    logger: { warn: () => {}, info: () => {} },
   }
-  apply(ctx, { importanceLearningRate: 0.01 })
-  const memory = provided.memory
+  apply(ctx, config)
+  return { memory: provided.memory, records, routes }
+}
+
+const fakeRes = () => {
+  const res = { code: 0, body: '' }
+  res.writeHead = (code) => { res.code = code }
+  res.end = (body) => { res.body = body }
+  return res
+}
+const postReq = (authorization, body) => ({
+  method: 'POST',
+  url: '/',
+  headers: authorization === undefined ? {} : { authorization },
+  on: (event, callback) => {
+    if (event === 'data' && body !== undefined) callback(Buffer.from(body))
+    if (event === 'end') callback()
+  },
+})
+
+async function main() {
+  const { memory, records, routes } = mountHub({ importanceLearningRate: 0.01 })
 
   // remember + dedup merge
   const first = await memory.remember({ content: '伙伴叫哲', type: 'semantic', importance: 0.5 })
@@ -114,6 +137,34 @@ async function main() {
   assert.ok(graphData.nodes.some((node) => node.text === 'dsh-memory'), 'shared entity appears in graph data')
 
   assert.equal(routes.length, 7, 'panel API routes registered (stats/list/graph/remember/forget/unarchive/export)')
+  assert.ok(!routes.some((route) => route.path.startsWith('/memory/remote/')), 'remote routes off by default')
+
+  // ── P3 remote API: token gate on every endpoint ──
+  const remote = mountHub({ server: { enabled: true, token: 'sekret' } })
+  const remotePaths = remote.routes.map((route) => route.path)
+  for (const path of ['/memory/remote/stats', '/memory/remote/list', '/memory/remote/recall',
+    '/memory/remote/remember', '/memory/remote/forget', '/memory/remote/export']) {
+    assert.ok(remotePaths.includes(path), `remote route ${path} registered`)
+  }
+  const rememberRoute = remote.routes.find((route) => route.path === '/memory/remote/remember')
+  const denied = fakeRes()
+  await rememberRoute.handler(postReq('Bearer wrong', JSON.stringify({ content: 'x' })), denied)
+  assert.equal(denied.code, 401, 'wrong token is rejected')
+  const granted = fakeRes()
+  await rememberRoute.handler(postReq('Bearer sekret', JSON.stringify({ content: '远程写入', type: 'semantic' })), granted)
+  assert.equal(granted.code, 200, 'valid token passes')
+  assert.equal(JSON.parse(granted.body).created, true)
+
+  // ── P3 embedding seam: a provided provider replaces the n-gram path ──
+  const provider = {
+    rank: async (texts) => texts.map((text) => (text.includes('prov-fav') ? 1 : 0)),
+  }
+  const embedded = mountHub({}, (name) => (name === 'memoryEmbedding' ? provider : undefined))
+  await embedded.memory.remember({ content: 'prov-fav 特殊记忆' })
+  await embedded.memory.remember({ content: '普通记忆' })
+  const embeddedHits = await embedded.memory.recall({ query: '任意', topK: 10 })
+  assert.equal(embeddedHits.hits[0].content, 'prov-fav 特殊记忆', 'provided embedding scores win')
+
   console.log('hub-test: all assertions passed')
 }
 

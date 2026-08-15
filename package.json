@@ -1,6 +1,6 @@
 {
   "name": "dsh-memory",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "DSH 高级共享记忆插件：可自选储存区（复用 DSH storage 域）、跨会话/多智能体共享、评分/衰减/置信度记忆机制、LLM 自动抽取、设置页可视化面板",
   "type": "module",
   "main": "lib/hub.js",
@@ -19,8 +19,9 @@
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node scripts/pipeline-test.mjs && node scripts/hub-test.mjs && node scripts/external-test.mjs && node scripts/vector-test.mjs && node scripts/graph-test.mjs",
+    "test": "node scripts/pipeline-test.mjs && node scripts/hub-test.mjs && node scripts/external-test.mjs && node scripts/vector-test.mjs && node scripts/graph-test.mjs && node scripts/mcp-test.mjs",
     "memory-cli": "node scripts/memory-cli.mjs",
+    "mcp-server": "node scripts/mcp-server.mjs",
     "smoke": "node -e \"Promise.all([import('./lib/hub.js'), import('./lib/agent.js')]).then(ms => ms.forEach(m => console.log('ok:', m.name, 'inject:', m.inject.join(','))))\""
   },
   "dsh": {

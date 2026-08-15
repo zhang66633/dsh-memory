@@ -12,9 +12,10 @@
 - **自动抽取（P1）**：每 N 回合结束后，用本机已配置的模型把回合浓缩成记忆候选——低于置信度门槛的丢弃，低于验证门槛的打「待验证」标记（检索分数折半）；被召回的条目 importance 缓慢抬升（用进废退）；
 - **语义检索 + 实体图谱（P2）**：查询召回三路融合——记忆评分 × 字符 n-gram 语义相似（TF-IDF 余弦，纯 JS 零原生依赖）× 实体共现图谱加权；图谱同时可视化（面板力导向图，点实体看相关记忆）；
 - **记忆维护（P2）**：遗忘衰减到阈值自动**归档**（隐藏不删、可恢复）；每 N 回合后台 **反思**（LLM 从近期记忆蒸馏洞察）与**整合**（同一实体簇的事件记忆折叠成一条事实）；
+- **远程共享（P3）**：令牌门禁的 `/memory/remote/*` HTTP API（默认关闭，开启后外部进程可读写）+ 零依赖 **MCP stdio 服务**（`scripts/mcp-server.mjs`，Claude Code 等外部 agent 即插即用）+ **可插拔 embedding 缝**（其他插件 `provide('memoryEmbedding')` 即可替换 n-gram 语义）；
 - **可视化**：顶部环「记忆」页签（与「对话」「插件商店」并列，主面板）+ 设置 → 插件 →「记忆」页签（发现路径）——时间线/图谱/归档三页签、带标签的写入表单、引用次数与写入来源、增删、JSON 导出，待验证条目虚线标识。
 
-**当前版本**：v0.3.0（P0–P2 完成）——手动记忆 + 工具 + 动态上下文召回 + 面板 + LLM 自动抽取 + 重要性学习 + 语义检索 + 实体图谱 + 归档/反思/整合 + 外部 agent CLI。HTTP/MCP 跨机共享见路线图 P3。
+**当前版本**：v0.4.0（P0–P3 完成）——手动记忆 + 工具 + 动态上下文召回 + 面板 + LLM 自动抽取 + 重要性学习 + 语义检索 + 实体图谱 + 归档/反思/整合 + 远程 HTTP API + MCP 服务 + 外部 agent CLI。权限位（private 可见性）与跨机部署细节见路线图。
 
 ## Compatibility
 
@@ -123,6 +124,81 @@ json 后端把整个 `memory` 域写成**单个文件** `~/.dsh/storages/memory.
 
 插件自带与插件同语义的零依赖 CLI（`npm run memory-cli -- <命令>`，或 `node scripts/memory-cli.mjs`）：`list` / `recall` / `remember` / `forget` / `restore` / `stats` / `export`，原子写入 + 并发冲突保护，是格式文档的参考实现。
 
+## Remote sharing & MCP（P3）
+
+### 开启远程 API（默认关闭）
+
+```yaml
+- id: memory-hub
+  config:
+    server:
+      enabled: true
+      token: '一个足够长的随机串'   # 所有远程端点 Bearer 校验；空 token 拒绝启用
+```
+
+远程端点在 `/memory/remote/*`（面板的 `/memory/api/*` 保持本地免密，互不影响）：
+
+| 端点 | 用途 |
+| --- | --- |
+| `GET /memory/remote/stats` | 统计 |
+| `GET /memory/remote/list?scope=&type=` | 列表 |
+| `GET /memory/remote/recall?query=&scope=&top_k=` | 融合召回（评分+语义+图谱） |
+| `POST /memory/remote/remember` | 写入 `{content,type,scope,importance,confidence}` |
+| `POST /memory/remote/forget` | 软删除 `{id}` |
+| `GET /memory/remote/export` | 全量导出 |
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  -d '{"content":"伙伴叫哲","type":"semantic","scope":"user"}' \
+  http://127.0.0.1:<dsh-web端口>/memory/remote/remember
+```
+
+> 跨机访问取决于 dsh webServer 的监听地址与网络拓扑（默认仅本机）；生产环境建议经反向代理走 HTTPS，并保管好 token。
+
+### MCP 服务（外部 agent 即插即用）
+
+零依赖 stdio MCP 服务器，把四个记忆工具（`memory_remember` / `memory_recall` / `memory_forget` / `memory_reflect`）桥接到远程 API：
+
+```jsonc
+// Claude Code / Cursor 等 MCP 客户端配置示例
+{
+  "mcpServers": {
+    "dsh-memory": {
+      "command": "node",
+      "args": ["D:/_Projects/skill_mcp/dsh-memory/scripts/mcp-server.mjs",
+               "--api", "http://127.0.0.1:<dsh-web端口>/memory/remote",
+               "--token", "<token>"],
+      "env": {}
+    }
+  }
+}
+```
+
+同一台机器可省略 `--token` 之外还用 `MEMORY_API_URL` / `MEMORY_API_TOKEN` 环境变量传参。
+
+### 可插拔 embedding（供其他插件替换 n-gram 语义）
+
+任何插件 `ctx.provide('memoryEmbedding', …)` 一个满足以下契约的服务，hub 即自动改用（失败/缺席回退 n-gram）：
+
+```js
+// 契约：rank(texts, query) → Promise<number[]> | number[]（与 texts 等长，0..1 相似度）
+ctx.provide('memoryEmbedding', {
+  rank: async (texts, query) => texts.map((text) => similarity(text, query)),
+})
+```
+
+### preset 集成（把 agent 行移入会话 preset）
+
+P0 起 `memory-agent` 行默认全局挂载；可改为仅特定 preset 使用：从全局 cordis.patch.yml 移除该行，在目标 preset 的 cordis.yml 里加：
+
+```yaml
+- id: memory-agent
+  name: 'dsh-memory/agent'
+  config: { recallTopK: 5, recallBudget: 1200 }
+```
+
+注意：`memory-hub`（宿主单例 + 存储 + 面板 API）必须留在宿主组合，不能进 preset。
+
 ## Permissions & data
 
 - 宿主半边只写 `memory` 存储域（默认 `~/.dsh/storages`），注册 `/memory/api/*` 本地路由；
@@ -143,14 +219,16 @@ json 后端把整个 `memory` 域写成**单个文件** `~/.dsh/storages/memory.
 ```bash
 npm install
 npm run build        # 构建 lib/client.js（wire 格式）
-npm test             # 管线/记忆服务/外部格式/向量/图谱 五组行为测试
+npm test             # 管线/记忆服务/外部格式/向量/图谱/MCP 六组行为测试
 npm run memory-cli   # 外部 agent CLI（list/recall/remember/...）
 npm run smoke        # node 半边加载冒烟
 ```
 
 ## Roadmap
 
-- P3：HTTP/MCP 服务模式（跨机/外部智能体）+ 可插拔 embedding provider + preset 集成
+- 权限位（private 仅本会话可见）：需要给工具执行层加会话上下文，暂缓——当前可用 `workspace:<路径>` 维度近似隔离；
+- 跨机部署开箱化（服务发现/HTTPS 指引）、embedding provider 参考实现（如本地 sentence-transformers 桥）；
+- 面板检索框（关键词+语义混合搜索 UI）。
 
 ## License & security
 
