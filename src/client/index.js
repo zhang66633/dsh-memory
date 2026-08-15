@@ -120,21 +120,35 @@ function GraphCanvas({ graph, entries }) {
   const [dragging, setDragging] = useState(null)
   const svgRef = useRef(null)
 
+  // A graph is about relationships: only entities with at least one
+  // co-occurrence edge are drawn; isolated prose tokens stay in the card view.
+  const visible = useMemo(() => {
+    const connected = new Set()
+    for (const edge of graph.edges) {
+      connected.add(edge.source)
+      connected.add(edge.target)
+    }
+    return {
+      nodes: graph.nodes.filter((node) => connected.has(node.text)),
+      edges: graph.edges.filter((edge) => connected.has(edge.source) && connected.has(edge.target)),
+    }
+  }, [graph])
+
   useEffect(() => {
-    setPositions(graph.nodes.length > 0 ? layout(graph.nodes, graph.edges, WIDTH, HEIGHT) : null)
+    setPositions(visible.nodes.length > 0 ? layout(visible.nodes, visible.edges, WIDTH, HEIGHT) : null)
     setSelected(null)
     setDragging(null)
-  }, [graph])
+  }, [visible])
 
   const neighbors = useMemo(() => {
     if (selected === null) return new Set()
     const set = new Set([selected])
-    for (const edge of graph.edges) {
+    for (const edge of visible.edges) {
       if (edge.source === selected) set.add(edge.target)
       if (edge.target === selected) set.add(edge.source)
     }
     return set
-  }, [graph, selected])
+  }, [visible, selected])
 
   const scale = () => {
     const el = svgRef.current
@@ -163,11 +177,18 @@ function GraphCanvas({ graph, entries }) {
   }
   const onPointerUp = () => setDragging(null)
 
-  if (positions === null) return null
+  if (visible.nodes.length < 2) {
+    return h('div', { className: 'mem-empty' },
+      '当前记忆之间还没有共同实体，画不出关系图（需要至少两个实体出现在同一条记忆里）。',
+      h('br'),
+      '多写几条关于同一项目/工具的记忆后回来看；或先看「实体卡片」。')
+  }
+
   const related = selected === null ? [] : entries.filter((entry) => entry.content.includes(selected)).slice(0, 8)
-  const selectedNode = graph.nodes.find((node) => node.text === selected)
+  const selectedNode = visible.nodes.find((node) => node.text === selected)
 
   return h('div', { className: 'mem-graph-wrap' },
+    h('div', { className: 'mem-graph-hint' }, '节点 = 记忆里反复出现的实体；连线 = 同一条记忆同时提到两个实体（线越粗共现越多）。点击节点看相关记忆，拖动可整理布局。'),
     h('div', { className: 'mem-legend' },
       Object.entries(KIND_LABEL).map(([kind, label]) => h('span', {
         key: kind, className: `mem-legend-item ${KIND_CLASS[kind] ?? ''}`,
@@ -178,7 +199,7 @@ function GraphCanvas({ graph, entries }) {
       viewBox: `0 0 ${WIDTH} ${HEIGHT}`, preserveAspectRatio: 'xMidYMid meet',
       onPointerMove, onPointerUp, onPointerLeave: onPointerUp,
     },
-      graph.edges.map((edge) => {
+      visible.edges.map((edge) => {
         const a = positions.get(edge.source)
         const b = positions.get(edge.target)
         if (!a || !b) return null
@@ -190,7 +211,7 @@ function GraphCanvas({ graph, entries }) {
           style: { opacity: Math.min(1, edge.weight / 3) },
         }, h('title', null, `${edge.source} ↔ ${edge.target} · 共现于 ${edge.weight} 条记忆`))
       }),
-      graph.nodes.map((node) => {
+      visible.nodes.map((node) => {
         const p = positions.get(node.text)
         const radius = Math.min(20, 8 + node.count * 1.5)
         const active = node.text === selected

@@ -30,6 +30,7 @@
   border-bottom-color: var(--dsw-alias-brand-primary, #4a6cf7);
 }
 .mem-graph-wrap { display: flex; flex-direction: column; gap: 10px; }
+.mem-graph-hint { font-size: 11px; opacity: 0.7; line-height: 1.6; }
 .mem-graph {
   width: 100%;
   height: auto;

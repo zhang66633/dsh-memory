@@ -11,6 +11,13 @@ assert.ok(texts.includes('0.2.1'), 'version entity')
 assert.ok(texts.includes('example.com'), 'url host entity')
 assert.ok(texts.includes('插件商店'), 'quoted CJK entity')
 
+// noise rejection: prose slashes around CJK are not paths; generic words are not entities
+const prose = extractRuleEntities('事件流/片段流渲染/durable state 是其认可的参考标准')
+const proseTexts = prose.map(({ text }) => text)
+assert.ok(!proseTexts.some((t) => t.includes('/')), 'CJK prose slashes are not path entities')
+assert.ok(!proseTexts.includes('state'), 'generic identifier stopwords are dropped')
+assert.ok(proseTexts.includes('durable'), 'non-stopword identifiers survive')
+
 const contents = [
   '在 dsh-memory 修了 BOM 的坑',
   'dsh-memory 的面板加了三页签',
@@ -24,6 +31,9 @@ assert.ok(graph.nodes.has('dsh-memory'), 'shared entity is a node')
 assert.equal(graph.nodes.get('dsh-memory').count, 3, 'node counts occurrences')
 assert.ok(graph.nodes.has('BOM'))
 assert.ok(graph.edges.has('BOM\u0000dsh-memory'), 'co-occurrence edge exists')
+assert.ok(graph.edges.has('agent\u0000dsh-memory'), 'second co-occurrence edge exists')
+assert.equal(graph.nodes.get('dsh-memory').degree, 2, 'degree counts distinct co-occurrence edges')
+assert.equal(graph.nodes.get('BOM').degree, 1)
 
 const q = queryEntities('BOM 问题')
 assert.ok(q.includes('BOM'), 'query entities extracted')
