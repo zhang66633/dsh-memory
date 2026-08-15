@@ -117,11 +117,14 @@ function MemoryPanel() {
     h('div', { className: 'mem-list' },
       entries.length === 0
         ? h('div', { className: 'mem-empty' }, '还没有记忆。写一条，或让模型用 memory_remember 工具。')
-        : entries.map((entry) => h('div', { key: entry.id, className: 'mem-item' },
+        : entries.map((entry) => h('div', {
+          key: entry.id,
+          className: `mem-item${entry.unverified === true ? ' mem-item-unverified' : ''}`,
+        },
           h('span', { className: `mem-type mem-type-${entry.type}` }, TYPE_LABEL[entry.type] ?? entry.type),
           h('span', { className: 'mem-content' }, entry.content),
           h('span', { className: 'mem-meta' },
-            `${entry.scope} · ★${entry.importance} · ${new Date(entry.created_at).toLocaleString()}`),
+            `${entry.scope} · ★${entry.importance}${entry.unverified === true ? ' · 待验证' : ''} · ${new Date(entry.created_at).toLocaleString()}`),
           h('button', {
             className: 'mem-del', title: '删除（软删除）',
             onClick: () => { void forget(entry.id) },
