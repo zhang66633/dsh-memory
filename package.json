@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "description": "DSH 高级共享记忆插件：可自选储存区（复用 DSH storage 域）、跨会话/多智能体共享、评分/衰减/置信度记忆机制、设置页可视化面板",
   "type": "module",
+  "main": "lib/hub.js",
   "exports": {
-    "./hub": "./lib/hub.js",
+    ".": "./lib/hub.js",
     "./agent": "./lib/agent.js",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"

@@ -7,7 +7,7 @@
 #                  phase moves it behind agent presets.
 - insert:
     - id: memory-hub
-      name: 'dsh-memory/hub'
+      name: 'dsh-memory'
 
     - id: memory-agent
       name: 'dsh-memory/agent'
