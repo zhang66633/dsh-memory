@@ -1,0 +1,13 @@
+# dsh-memory bundle for DeepSeek Harness (dsh).
+# Two rows:
+#   memory-hub   — host plane: the shared MemoryService singleton + the
+#                  `memory` storage domain + the panel API routes.
+#   memory-agent — agent plane: model-facing tools, dynamic-context recall,
+#                  and turn/end refresh. P0 mounts it globally; a later
+#                  phase moves it behind agent presets.
+- insert:
+    - id: memory-hub
+      name: 'dsh-memory/hub'
+
+    - id: memory-agent
+      name: 'dsh-memory/agent'
