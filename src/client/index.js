@@ -171,13 +171,25 @@ function MemoryPanel() {
   )
 }
 
-/** Client plugin body: register the Plugins-settings tab. */
+/**
+ * Client plugin body: register the memory panel twice —
+ * 1. the Plugins-settings tab (发现路径：设置 → 插件 → 记忆);
+ * 2. the conversation view ring (顶部页签，与「对话/轨迹/插件商店」并列),
+ *    the primary surface — the ring renders it in the wide main area.
+ */
 export function apply(ctx) {
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
     id: 'memory',
     order: 60,
     label: '记忆',
+  }, MemoryPanel))
+
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({
+    name: 'conversation.view',
+    id: 'memory',
+    order: 15,
+    label: () => '记忆',
   }, MemoryPanel))
 
   ctx.effect(() => {
