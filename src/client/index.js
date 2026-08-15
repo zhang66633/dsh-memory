@@ -9,7 +9,7 @@
  *
  * @module dsh-memory/client
  */
-import { createElement as h, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, createElement as h, useEffect, useMemo, useRef, useState } from 'react'
 import cssText from './panel.css'
 
 /** Plugin name; also the client bundle id. */
@@ -115,11 +115,6 @@ function layout(nodes, edges, width, height) {
 }
 
 function GraphCanvas({ graph, entries }) {
-  const [positions, setPositions] = useState(null)
-  const [selected, setSelected] = useState(null)
-  const [dragging, setDragging] = useState(null)
-  const svgRef = useRef(null)
-
   // A graph is about relationships: only entities with at least one
   // co-occurrence edge are drawn; isolated prose tokens stay in the card view.
   const visible = useMemo(() => {
@@ -133,6 +128,14 @@ function GraphCanvas({ graph, entries }) {
       edges: graph.edges.filter((edge) => connected.has(edge.source) && connected.has(edge.target)),
     }
   }, [graph])
+
+  // Lazy initializer: the first render must already have positions (a
+  // useEffect-filled map renders one frame with null and crashes).
+  const [positions, setPositions] = useState(() =>
+    visible.nodes.length > 0 ? layout(visible.nodes, visible.edges, WIDTH, HEIGHT) : null)
+  const [selected, setSelected] = useState(null)
+  const [dragging, setDragging] = useState(null)
+  const svgRef = useRef(null)
 
   useEffect(() => {
     setPositions(visible.nodes.length > 0 ? layout(visible.nodes, visible.edges, WIDTH, HEIGHT) : null)
@@ -183,6 +186,7 @@ function GraphCanvas({ graph, entries }) {
       h('br'),
       '多写几条关于同一项目/工具的记忆后回来看；或先看「实体卡片」。')
   }
+  if (positions === null) return null
 
   const related = selected === null ? [] : entries.filter((entry) => entry.content.includes(selected)).slice(0, 8)
   const selectedNode = visible.nodes.find((node) => node.text === selected)
@@ -472,6 +476,31 @@ function MemoryPanel() {
   )
 }
 
+/** Last-resort render guard: an error inside the panel shows a message instead of a blank tab. */
+class PanelBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error !== null) {
+      return h('div', { className: 'mem-panel' },
+        h('div', { className: 'mem-error' }, `面板渲染出错：${this.state.error?.message ?? String(this.state.error)}`),
+        h('div', { className: 'mem-error' }, '如持续出现，请在 dsh 日志里查找 dsh-memory 相关报错。'),
+        h('button', {
+          className: 'mem-btn', onClick: () => this.setState({ error: null }),
+        }, '重试'),
+      )
+    }
+    return this.props.children
+  }
+}
+
 /**
  * Client plugin body: register the memory panel twice —
  * 1. the Plugins-settings tab (发现路径：设置 → 插件 → 记忆);
@@ -479,19 +508,21 @@ function MemoryPanel() {
  *    the primary surface — the ring renders it in the wide main area.
  */
 export function apply(ctx) {
+  const render = (props) => h(PanelBoundary, null, h(MemoryPanel, props))
+
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
     id: 'memory',
     order: 60,
     label: '记忆',
-  }, MemoryPanel))
+  }, render))
 
   ctx.slots.inject('conversation.view', () => ctx.slots.register({
     name: 'conversation.view',
     id: 'memory',
     order: 15,
     label: () => '记忆',
-  }, MemoryPanel))
+  }, render))
 
   ctx.effect(() => {
     const style = document.createElement('style')
