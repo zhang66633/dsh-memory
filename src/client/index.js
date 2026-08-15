@@ -133,6 +133,7 @@ function GraphCanvas({ graph, entries }) {
   // useEffect-filled map renders one frame with null and crashes).
   const [positions, setPositions] = useState(() =>
     visible.nodes.length > 0 ? layout(visible.nodes, visible.edges, WIDTH, HEIGHT) : null)
+  // Selection is a node ({kind:'node', text}) or an edge ({kind:'edge', source, target}).
   const [selected, setSelected] = useState(null)
   const [dragging, setDragging] = useState(null)
   const svgRef = useRef(null)
@@ -143,12 +144,13 @@ function GraphCanvas({ graph, entries }) {
     setDragging(null)
   }, [visible])
 
-  const neighbors = useMemo(() => {
+  const focus = useMemo(() => {
     if (selected === null) return new Set()
-    const set = new Set([selected])
+    if (selected.kind === 'edge') return new Set([selected.source, selected.target])
+    const set = new Set([selected.text])
     for (const edge of visible.edges) {
-      if (edge.source === selected) set.add(edge.target)
-      if (edge.target === selected) set.add(edge.source)
+      if (edge.source === selected.text) set.add(edge.target)
+      if (edge.target === selected.text) set.add(edge.source)
     }
     return set
   }, [visible, selected])
@@ -160,7 +162,7 @@ function GraphCanvas({ graph, entries }) {
 
   const onPointerDown = (event, node) => {
     event.currentTarget.setPointerCapture(event.pointerId)
-    setSelected(node.text)
+    setSelected({ kind: 'node', text: node.text })
     setDragging({ text: node.text, x: event.clientX, y: event.clientY })
   }
   const onPointerMove = (event) => {
@@ -188,11 +190,11 @@ function GraphCanvas({ graph, entries }) {
   }
   if (positions === null) return null
 
-  const related = selected === null ? [] : entries.filter((entry) => entry.content.includes(selected)).slice(0, 8)
-  const selectedNode = visible.nodes.find((node) => node.text === selected)
+  const sharedOf = (source, target) => entries.filter((entry) =>
+    entry.content.includes(source) && entry.content.includes(target)).slice(0, 8)
 
   return h('div', { className: 'mem-graph-wrap' },
-    h('div', { className: 'mem-graph-hint' }, '节点 = 记忆里反复出现的实体；连线 = 同一条记忆同时提到两个实体（线越粗共现越多）。点击节点看相关记忆，拖动可整理布局。'),
+    h('div', { className: 'mem-graph-hint' }, '节点 = 记忆里反复出现的实体；连线 = 同一条记忆同时提到两个实体（线越粗共现越多）。点节点看它的记忆，点连线看把它们连起来的记忆，拖动可整理布局。'),
     h('div', { className: 'mem-legend' },
       Object.entries(KIND_LABEL).map(([kind, label]) => h('span', {
         key: kind, className: `mem-legend-item ${KIND_CLASS[kind] ?? ''}`,
@@ -207,21 +209,24 @@ function GraphCanvas({ graph, entries }) {
         const a = positions.get(edge.source)
         const b = positions.get(edge.target)
         if (!a || !b) return null
-        const dimmed = selected !== null && !(neighbors.has(edge.source) && neighbors.has(edge.target))
+        const active = selected?.kind === 'edge'
+          && selected.source === edge.source && selected.target === edge.target
+        const dimmed = selected !== null && !active && !(focus.has(edge.source) && focus.has(edge.target))
         return h('line', {
           key: `${edge.source}->${edge.target}`,
           x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-          className: `mem-edge${dimmed ? ' mem-dim' : ''}`,
+          className: `mem-edge${active ? ' mem-edge-active' : ''}${dimmed ? ' mem-dim' : ''}`,
           // weight scales thickness; a floor keeps weight-1 edges visible
-          strokeWidth: Math.min(4, 1 + edge.weight * 0.8),
+          strokeWidth: active ? 4 : Math.min(4, 1 + edge.weight * 0.8),
           style: { opacity: Math.max(0.35, Math.min(1, edge.weight / 3)) },
-        }, h('title', null, `${edge.source} ↔ ${edge.target} · 共现于 ${edge.weight} 条记忆`))
+          onClick: () => setSelected({ kind: 'edge', source: edge.source, target: edge.target }),
+        }, h('title', null, `${edge.source} ↔ ${edge.target} · 共现于 ${edge.weight} 条记忆 · 点击查看关联记忆`))
       }),
       visible.nodes.map((node) => {
         const p = positions.get(node.text)
         const radius = Math.min(20, 8 + node.count * 1.5)
-        const active = node.text === selected
-        const dimmed = selected !== null && !neighbors.has(node.text)
+        const active = selected?.kind === 'node' && selected.text === node.text
+        const dimmed = selected !== null && !focus.has(node.text)
         return h('g', {
           key: node.text,
           className: `mem-node${active ? ' mem-node-active' : ''}${dimmed ? ' mem-dim' : ''} ${KIND_CLASS[node.kind] ?? 'mem-kind-label'}`,
@@ -236,12 +241,19 @@ function GraphCanvas({ graph, entries }) {
         )
       }),
     ),
-    selected !== null && h('div', { className: 'mem-graph-detail' },
+    selected?.kind === 'edge' && h('div', { className: 'mem-graph-detail' },
       h('div', { className: 'mem-graph-title' },
-        `实体「${selected}」· 出现在 ${selectedNode?.count ?? 0} 条记忆中`),
-      related.length === 0
+        `「${selected.source}」↔「${selected.target}」的关联 · 因以下记忆相连：`),
+      sharedOf(selected.source, selected.target).length === 0
+        ? h('div', { className: 'mem-empty' }, '当前列表中没有同时提到这两个实体的记忆。')
+        : sharedOf(selected.source, selected.target).map((entry) => h(EntryItem, { key: entry.id, entry })),
+    ),
+    selected?.kind === 'node' && h('div', { className: 'mem-graph-detail' },
+      h('div', { className: 'mem-graph-title' },
+        `实体「${selected.text}」· 出现在 ${visible.nodes.find((node) => node.text === selected.text)?.count ?? 0} 条记忆中`),
+      sharedOf(selected.text, selected.text).length === 0
         ? h('div', { className: 'mem-empty' }, '当前列表中没有含此实体的记忆。')
-        : related.map((entry) => h(EntryItem, { key: entry.id, entry })),
+        : sharedOf(selected.text, selected.text).map((entry) => h(EntryItem, { key: entry.id, entry })),
     ),
   )
 }
