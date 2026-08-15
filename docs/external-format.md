@@ -1,17 +1,18 @@
-# dsh-memory · 外部智能体目录格式（json 后端）
+# dsh-memory · 外部智能体目录格式（自管文件后端）
 
-> 适用版本：dsh-memory ≥ 0.2.0 · 依据 DSH `@deepseek-ai/dsh-storage-json` 真实落盘格式。
+> 适用版本：dsh-memory ≥ 0.5.0（≤0.4.x 的 `~/.dsh/storages/memory.json` 为同一格式，无缝兼容）。
 > 用途：让 dsh 之外的智能体（Claude Code、自研脚本等）直接读写共享记忆。
 
 ## 1. 文件位置
 
-json 后端（默认）把 `memory` 域写成**单个文件**：
+自管后端把整个记忆库写成**单个文件**：
 
 ```
-~/.dsh/storages/memory.json        # Windows: %USERPROFILE%\.dsh\storages\memory.json
+{storage.root}/memory.json
 ```
 
-存储根目录由部署的 `storage-json` 行配置决定（web bundle 默认 `dshHomePath('storages')`），文件名固定为 `<域名>.json`。
+- 默认 `storage.root` = `${DSH_HOME|~/.dsh}/storages`（Windows：`%USERPROFILE%\.dsh\storages\memory.json`）；
+- 在 memory-hub 行配置 `storage.root` 可指向任意目录（如 Obsidian 库 `D:/_Tools/Obsidian/memory`），文件名固定 `memory.json`。
 
 ## 2. 文件结构
 

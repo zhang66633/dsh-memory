@@ -38,15 +38,6 @@
   background: var(--dsw-alias-bg-layer-1, transparent);
 }
 .mem-edge { stroke: var(--dsw-alias-border-l1, #888); stroke-width: 1; }
-.mem-node { cursor: pointer; }
-.mem-node circle {
-  fill: var(--dsw-alias-brand-primary, #4a6cf7);
-  opacity: 0.75;
-}
-.mem-node-active circle {
-  fill: var(--dsw-alias-state-warn-primary, #f76b15);
-  opacity: 1;
-}
 .mem-node-label {
   fill: var(--dsw-alias-label-primary, inherit);
   font-size: 9px;
@@ -163,3 +154,69 @@
   line-height: 1.5;
 }
 .mem-del:hover { opacity: 1; color: var(--dsw-alias-state-error-primary, #e5484d); }
+.mem-dim { opacity: 0.15; transition: opacity 120ms; }
+.mem-relations { display: flex; flex-direction: column; gap: 10px; }
+.mem-card-list { display: flex; flex-direction: column; gap: 8px; }
+.mem-entity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, #888);
+  border-radius: 6px;
+}
+.mem-entity-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mem-entity-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.mem-entity-count { font-size: 10px; opacity: 0.65; flex-shrink: 0; }
+.mem-entity-rels {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.mem-entity-rels-label { opacity: 0.65; }
+.mem-entity-rel {
+  padding: 1px 8px;
+  border: 1px solid var(--dsw-alias-border-l1, #888);
+  border-radius: 10px;
+  opacity: 0.85;
+  cursor: default;
+}
+.mem-entity-memories { display: flex; flex-direction: column; gap: 4px; }
+.mem-kind {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+.mem-kind-brand { color: var(--dsw-alias-brand-primary, #4a6cf7); }
+.mem-kind-success { color: var(--dsw-alias-state-success-primary, #30a46c); }
+.mem-kind-warn { color: var(--dsw-alias-state-warn-primary, #f76b15); }
+.mem-kind-error { color: var(--dsw-alias-state-error-primary, #e5484d); }
+.mem-kind-label { color: var(--dsw-alias-label-secondary, #888); }
+.mem-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10px; opacity: 0.8; }
+.mem-legend-item { display: flex; align-items: center; gap: 4px; }
+.mem-legend-item::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.mem-node { cursor: grab; }
+.mem-node:active { cursor: grabbing; }
+.mem-node circle { opacity: 0.8; }
+.mem-node-active circle { opacity: 1; stroke: currentColor; stroke-width: 2; }
+.mem-kind-brand circle { fill: var(--dsw-alias-brand-primary, #4a6cf7); }
+.mem-kind-success circle { fill: var(--dsw-alias-state-success-primary, #30a46c); }
+.mem-kind-warn circle { fill: var(--dsw-alias-state-warn-primary, #f76b15); }
+.mem-kind-error circle { fill: var(--dsw-alias-state-error-primary, #e5484d); }
+.mem-kind-label circle { fill: var(--dsw-alias-label-secondary, #888); }

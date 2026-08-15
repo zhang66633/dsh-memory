@@ -1,11 +1,14 @@
 # dsh-memory bundle for DeepSeek Harness (dsh).
 # Two rows:
 #   memory-hub   — host plane: the shared MemoryService singleton + the
-#                  `memory` storage domain + the panel API routes. P2 fusion
-#                  recall (score × n-gram semantic × entity-graph) and the
-#                  archive/graph service live here (semanticWeight, graphWeight,
-#                  archiveThreshold). P3: token-gated /memory/remote/* API
-#                  (server: {enabled, token}) and the memoryEmbedding seam.
+#                  SELF-OWNED file backend (registered as `memory` on the
+#                  storage hub; `storage.root` relocates the memory.json unit,
+#                  default ${DSH_HOME|~/.dsh}/storages) + the panel API routes.
+#                  P2 fusion recall (score × n-gram semantic × entity-graph)
+#                  and the archive/graph service live here (semanticWeight,
+#                  graphWeight, archiveThreshold). P3: token-gated
+#                  /memory/remote/* API (server: {enabled, token}) and the
+#                  memoryEmbedding seam.
 #   memory-agent — agent plane: model-facing tools, dynamic-context recall,
 #                  turn/end refresh, P1 LLM auto-extraction and P2 background
 #                  maintenance (archiveBelow / reflect / consolidate, all

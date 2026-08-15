@@ -1,44 +1,47 @@
-/** dsh-memory hub service behavior test over a mocked storageDomain. */
+/** dsh-memory hub service behavior test over the real file backend in tmp dirs. */
 import assert from 'node:assert/strict'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { apply } from '../lib/hub.js'
+import { BACKEND_NAME } from '../lib/backend.js'
 
-function makeDomain() {
-  const records = new Map()
-  let globalValue = { last_extracted: {} }
-  const domain = {
-    global: {
-      get: () => globalValue,
-      set: async (value) => { globalValue = value },
-    },
-    table: (name) => ({
-      entries: () => records.entries(),
-      put: async (key, value) => { records.set(key, value) },
-      get: (key) => records.get(key),
-    }),
-    close: async () => {},
-  }
-  return { domain, records }
-}
+const cleanups = []
 
-/** Mount the hub over fresh mocked services; returns the service + effects. */
-function mountHub(config = {}, getFn = () => undefined) {
-  const { domain, records } = makeDomain()
+/**
+ * Mount the hub over the real MemoryFileBackend (root = fresh tmp dir) and a
+ * mocked storage hub; returns the service, a live view of the entries table,
+ * and the collected routes.
+ */
+async function mountHub(config = {}, getFn = () => undefined) {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-memory-hub-'))
+  cleanups.push(root)
+  const backends = {}
   const routes = []
   const provided = {}
   const ctx = {
-    storageDomain: { open: async (spec) => {
-      assert.equal(spec.name, 'memory')
-      assert.ok(spec.global, 'spec declares the watermark global')
-      return domain
-    } },
+    storage: {
+      backend: {
+        register: (name, backend) => { backends[name] = backend; return () => {} },
+      },
+    },
     webServer: { register: (route) => { routes.push(route); return () => {} } },
     effect: (fn, label) => { void fn(); return () => {} },
     provide: (name, value) => { provided[name] = value },
     get: getFn,
     logger: { warn: () => {}, info: () => {} },
   }
-  apply(ctx, config)
-  return { memory: provided.memory, records, routes }
+  apply(ctx, { ...config, storage: { root, ...(config.storage ?? {}) } })
+  const backend = backends[BACKEND_NAME]
+  assert.ok(backend, 'hub registers its storage backend')
+  // The unit open is async (mkdir + read); poll until it exists.
+  for (let i = 0; i < 200 && backend.units.size === 0; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  const unit = backend.units.get('memory')
+  assert.ok(unit, 'hub opens its memory unit')
+  const entries = () => unit.snapshot().tables.entries ?? {}
+  return { memory: provided.memory, records: { get: (id) => entries()[id], raw: entries }, routes }
 }
 
 const fakeRes = () => {
@@ -58,7 +61,7 @@ const postReq = (authorization, body) => ({
 })
 
 async function main() {
-  const { memory, records, routes } = mountHub({ importanceLearningRate: 0.01 })
+  const { memory, records, routes } = await mountHub({ importanceLearningRate: 0.01 })
 
   // remember + dedup merge
   const first = await memory.remember({ content: '伙伴叫哲', type: 'semantic', importance: 0.5 })
@@ -140,7 +143,7 @@ async function main() {
   assert.ok(!routes.some((route) => route.path.startsWith('/memory/remote/')), 'remote routes off by default')
 
   // ── P3 remote API: token gate on every endpoint ──
-  const remote = mountHub({ server: { enabled: true, token: 'sekret' } })
+  const remote = await mountHub({ server: { enabled: true, token: 'sekret' } })
   const remotePaths = remote.routes.map((route) => route.path)
   for (const path of ['/memory/remote/stats', '/memory/remote/list', '/memory/remote/recall',
     '/memory/remote/remember', '/memory/remote/forget', '/memory/remote/export']) {
@@ -159,13 +162,14 @@ async function main() {
   const provider = {
     rank: async (texts) => texts.map((text) => (text.includes('prov-fav') ? 1 : 0)),
   }
-  const embedded = mountHub({}, (name) => (name === 'memoryEmbedding' ? provider : undefined))
+  const embedded = await mountHub({}, (name) => (name === 'memoryEmbedding' ? provider : undefined))
   await embedded.memory.remember({ content: 'prov-fav 特殊记忆' })
   await embedded.memory.remember({ content: '普通记忆' })
   const embeddedHits = await embedded.memory.recall({ query: '任意', topK: 10 })
   assert.equal(embeddedHits.hits[0].content, 'prov-fav 特殊记忆', 'provided embedding scores win')
 
   console.log('hub-test: all assertions passed')
+  await Promise.all(cleanups.map((dir) => rm(dir, { recursive: true, force: true })))
 }
 
 main().catch((error) => { console.error(error); process.exit(1) })
