@@ -70,7 +70,26 @@ score = importance × confidence × 2^(−(now − last_accessed_at) / (half_lif
 3. **schema 校验**：dsh 启动载入时会校验每条的 `id/type/content/scope/importance/confidence/tombstone` 基本形状；写坏会让 `memory` 域拒绝打开（报 `invalid-record`），此时修复文件或删除该域文件即可（数据丢失风险自负）。
 4. **版本**：`unit.version` 必须保持 `1`；插件升级若变更格式会随之提升，外部工具应读取该字段做兼容判断。
 
-## 6. 最小示例（新增一条偏好）
+## 6. 参考实现：memory-cli（外部 agent 命令行工具）
+
+插件仓库自带一个零依赖 CLI，与插件共享同一份语义代码（`lib/external.js`）——它是本文档的**参考实现**，也是「外部可读写」的联动验证：
+
+```bash
+node scripts/memory-cli.mjs list   [--scope s] [--type t] [--all]
+node scripts/memory-cli.mjs recall [查询词] [--top 5] [--scope s]
+node scripts/memory-cli.mjs remember --content "…" [--type semantic] [--scope user] [--importance 0.6] [--confidence 1]
+node scripts/memory-cli.mjs forget <id>        # 软删除
+node scripts/memory-cli.mjs restore <id>       # 恢复软删除
+node scripts/memory-cli.mjs stats
+node scripts/memory-cli.mjs export
+```
+
+- 文件路径默认 `~/.dsh/storages/memory.json`，用环境变量 `MEMORY_FILE` 覆盖（`DSH_HOME` 可移动默认根目录）；
+- 写入自动执行 §4 的去重/合并语义（同 content+scope 合并抬升 importance）；
+- 写入是原子的（临时文件 + rename），且带**乐观并发保护**：读文件后若 mtime 被其他进程改动，写入会拒绝执行并提示重读——防止并发编辑互相覆盖；
+- `recall` 实现 §3 的评分公式（衰减/未验证折半/关键词加权），排序结果与插件一致。
+
+## 7. 最小示例（新增一条偏好）
 
 ```json
 {

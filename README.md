@@ -12,7 +12,7 @@
 - **自动抽取（P1）**：每 N 回合结束后，用本机已配置的模型把回合浓缩成记忆候选——低于置信度门槛的丢弃，低于验证门槛的打「待验证」标记（检索分数折半）；被召回的条目 importance 缓慢抬升（用进废退）；
 - **可视化**：顶部环「记忆」页签（与「对话」「插件商店」并列，主面板）+ 设置 → 插件 →「记忆」页签（发现路径）——统计、带标签的写入表单（类型/范围/重要性）、时间线（含引用次数与写入来源）、增删、JSON 导出，待验证条目虚线标识。
 
-**当前版本**：v0.2.0（P0 + P1 核心）——手动记忆 + 工具 + 动态上下文自动召回 + 面板 + LLM 自动抽取 + 重要性学习 + 外部格式文档。语义检索、图谱、反思等见路线图。
+**当前版本**：v0.2.1（P0 + P1 完成）——手动记忆 + 工具 + 动态上下文自动召回 + 面板 + LLM 自动抽取 + 重要性学习 + 外部 agent CLI 与格式文档。语义检索、图谱、反思等见路线图。
 
 ## Compatibility
 
@@ -61,10 +61,12 @@ cd ~/.dsh/profiles/web && pnpm install   # 重启 dsh web
     recallBudget: 1200
     extraction:
       enabled: true          # 关闭自动抽取
-      everyNTurns: 1         # 每 N 个完成回合抽一次（降频省 token）
+      everyNTurns: 1         # 每 N 个完成回合抽一次（降频/攒批省 token）
       maxInputChars: 6000    # 转写文本预算（超出丢最早内容）
+      minTranscriptChars: 40 # 低于此长度的琐碎回合直接跳过（不耗 LLM 调用）
       minConfidence: 0.3     # 低于此置信度的候选直接丢弃
       verifyConfidence: 0.6  # 低于此置信度打 unverified（检索折半）
+      maxCandidates: 8       # 单次抽取最多写入的候选数
       timeoutMs: 60000       # 抽取调用超时
       maxTokens: 1024        # 抽取输出 token 上限
     # 抽取路由：缺省复用会话的 request/header 路由；也可显式成对指定：
@@ -101,6 +103,8 @@ json（默认）之外，sqlite 需要**额外安装后端包并加一行插件*
 
 json 后端把整个 `memory` 域写成**单个文件** `~/.dsh/storages/memory.json`（`{unit, global, tables.entries}`）。外部智能体可只读检索、或停 dsh 后编辑。字段、语义约定（去重/合并/软删除）与读写安全规则见 [docs/external-format.md](docs/external-format.md)。
 
+插件自带与插件同语义的零依赖 CLI（`npm run memory-cli -- <命令>`，或 `node scripts/memory-cli.mjs`）：`list` / `recall` / `remember` / `forget` / `restore` / `stats` / `export`，原子写入 + 并发冲突保护，是格式文档的参考实现。
+
 ## Permissions & data
 
 - 宿主半边只写 `memory` 存储域（默认 `~/.dsh/storages`），注册 `/memory/api/*` 本地路由；
@@ -120,14 +124,14 @@ json 后端把整个 `memory` 域写成**单个文件** `~/.dsh/storages/memory.
 
 ```bash
 npm install
-npm run build   # 构建 lib/client.js（wire 格式）
-npm test        # 抽取管线 + 记忆服务行为测试
-npm run smoke   # node 半边加载冒烟
+npm run build        # 构建 lib/client.js（wire 格式）
+npm test             # 抽取管线 + 记忆服务 + 外部格式语义测试
+npm run memory-cli   # 外部 agent CLI（list/recall/remember/...）
+npm run smoke        # node 半边加载冒烟
 ```
 
 ## Roadmap
 
-- P1 剩余：外部 agent 目录格式的读写联动验证（json 后端）+ 抽取降频/攒批策略调优
 - P2：sqlite-vec 语义检索 + 轻量图谱 + consolidate/reflect/archive + 图谱可视化
 - P3：HTTP/MCP 服务模式（跨机/外部智能体）+ preset 集成
 
