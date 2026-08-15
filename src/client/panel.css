@@ -38,7 +38,7 @@
   border-radius: 6px;
   background: var(--dsw-alias-bg-layer-1, transparent);
 }
-.mem-edge { stroke: var(--dsw-alias-border-l1, #888); stroke-width: 1; }
+.mem-edge { stroke: var(--dsw-alias-label-tertiary, #888); stroke-width: 1.5; }
 .mem-node-label {
   fill: var(--dsw-alias-label-primary, inherit);
   font-size: 9px;

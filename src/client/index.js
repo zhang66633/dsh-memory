@@ -212,7 +212,9 @@ function GraphCanvas({ graph, entries }) {
           key: `${edge.source}->${edge.target}`,
           x1: a.x, y1: a.y, x2: b.x, y2: b.y,
           className: `mem-edge${dimmed ? ' mem-dim' : ''}`,
-          style: { opacity: Math.min(1, edge.weight / 3) },
+          // weight scales thickness; a floor keeps weight-1 edges visible
+          strokeWidth: Math.min(4, 1 + edge.weight * 0.8),
+          style: { opacity: Math.max(0.35, Math.min(1, edge.weight / 3)) },
         }, h('title', null, `${edge.source} ↔ ${edge.target} · 共现于 ${edge.weight} 条记忆`))
       }),
       visible.nodes.map((node) => {
