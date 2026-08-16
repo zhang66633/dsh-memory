@@ -23,17 +23,34 @@ const contents = [
   'dsh-memory 的面板加了三页签',
   'dsh-memory 支持外部 agent 读写',
   '伙伴叫哲，喜欢喝咖啡',
+  '通过 agent 调 dsh-memory 的 API',
 ]
 const terms = extractCjkTerms(contents)
 assert.ok(terms.includes('dsh-memory') === false, 'cjk terms are CJK-only')
 const graph = buildGraph(contents.map((content, i) => ({ id: `e${i}`, content })))
 assert.ok(graph.nodes.has('dsh-memory'), 'shared entity is a node')
-assert.equal(graph.nodes.get('dsh-memory').count, 3, 'node counts occurrences')
+assert.equal(graph.nodes.get('dsh-memory').count, 4, 'node counts occurrences')
 assert.ok(graph.nodes.has('BOM'))
+assert.ok(graph.nodes.has('agent'), 'repeated identifier is an entity')
 assert.ok(graph.edges.has('BOM\u0000dsh-memory'), 'co-occurrence edge exists')
 assert.ok(graph.edges.has('agent\u0000dsh-memory'), 'second co-occurrence edge exists')
 assert.equal(graph.nodes.get('dsh-memory').degree, 2, 'degree counts distinct co-occurrence edges')
 assert.equal(graph.nodes.get('BOM').degree, 1)
+
+// single-occurrence identifiers are prose, not entities
+const sparse = buildGraph([
+  { id: 's0', content: 'using an absolute drive path causes junction issues' },
+  { id: 's1', content: 'using junction install is fine' },
+])
+assert.ok(!sparse.nodes.has('absolute'), 'one-off prose word dropped')
+assert.ok(!sparse.nodes.has('drive'), 'stopword dropped')
+assert.ok(!sparse.nodes.has('install'), 'one-off lowercase identifier dropped')
+assert.ok(sparse.nodes.has('junction'), 'repeated identifier kept')
+
+// full-width parens stop path matches: CJK never leaks into a path entity
+const parenPath = extractRuleEntities('link:D:/_Projects/x）经 pnpm install')
+const pathEntity = parenPath.find(({ kind }) => kind === 'path')
+assert.ok(pathEntity !== undefined && pathEntity.text === 'D:/_Projects/x', 'path stops at full-width paren')
 
 const q = queryEntities('BOM 问题')
 assert.ok(q.includes('BOM'), 'query entities extracted')
