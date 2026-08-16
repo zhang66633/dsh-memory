@@ -6,7 +6,11 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.5.0-4a6cf7">
+  <strong>English</strong> | <a href="README.zh.md">中文</a>
+</p>
+
+<p align="center">
+  <img alt="version" src="https://img.shields.io/badge/version-0.5.2-4a6cf7">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-30a46c">
   <img alt="platform" src="https://img.shields.io/badge/platform-DeepSeek%20Harness-f76b15">
   <img alt="zero-deps" src="https://img.shields.io/badge/runtime%20deps-zero-888">

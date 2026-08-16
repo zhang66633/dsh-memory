@@ -1,6 +1,6 @@
 {
   "name": "dsh-memory",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "Long-term shared memory plugin for the DeepSeek Harness: LLM auto-extraction, fusion recall (semantic + entity graph), self-maintenance, own-your-storage file backend, remote API & MCP",
   "type": "module",
   "main": "lib/hub.js",
