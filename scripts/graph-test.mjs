@@ -42,5 +42,21 @@ const e3 = { id: 'e3' }
 assert.ok(graphBoost(graph, e0, q) > 0, 'entry sharing a query entity gets boosted')
 assert.equal(graphBoost(graph, e3, q), 0, 'entry without shared entities gets nothing')
 
+// maximal-term pruning: fragments absorbed by longer kept terms; stopwords gone
+const phraseTerms = extractCjkTerms([
+  '绝对盘符路径被当成相对路径拼接',
+  '绝对盘符路径会生成坏 junction',
+])
+assert.ok(phraseTerms.includes('绝对盘符路径'), 'maximal phrase survives')
+assert.ok(!phraseTerms.includes('绝对盘'), 'trigram fragment absorbed')
+assert.ok(!phraseTerms.includes('盘符'), 'bigram fragment absorbed')
+assert.ok(!phraseTerms.includes('路径'), 'stopword dropped')
+const proseTerms = extractCjkTerms([
+  '修复损坏的 junction 需要重建',
+  '修复后必须验证 junction 目标',
+])
+assert.ok(!proseTerms.includes('修复'), 'generic prose word dropped')
+assert.ok(!proseTerms.includes('重建'), 'generic prose word dropped')
+
 assert.deepEqual(entitiesOf('伙伴叫哲', terms).filter((t) => t === '伙伴'), [], 'rule-only extraction for unknown CJK')
 console.log('graph-test: all assertions passed')
