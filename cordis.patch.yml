@@ -16,7 +16,7 @@
 #                  agent preset to scope it; the hub row must stay host-side.
 - insert:
     - id: memory-hub
-      name: 'dsh-memory'
+      name: '@zheexinn/dsh-memory'
 
     - id: memory-agent
-      name: 'dsh-memory/agent'
+      name: '@zheexinn/dsh-memory/agent'

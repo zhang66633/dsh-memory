@@ -1,5 +1,5 @@
 {
-  "name": "dsh-memory",
+  "name": "@zheexinn/dsh-memory",
   "version": "0.5.2",
   "description": "Long-term shared memory plugin for the DeepSeek Harness: LLM auto-extraction, fusion recall (semantic + entity graph), self-maintenance, own-your-storage file backend, remote API & MCP",
   "type": "module",

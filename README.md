@@ -43,8 +43,8 @@
 ```jsonc
 // ~/.dsh/profiles/web/package.json
 {
-  "dependencies": { "dsh-memory": "link:<repo path>" },
-  "dsh": { "profile": { "bundles": ["dsh-memory"] } }
+  "dependencies": { "@zheexinn/dsh-memory": "link:<repo path>" },
+  "dsh": { "profile": { "bundles": ["@zheexinn/dsh-memory"] } }
 }
 ```
 
@@ -93,7 +93,7 @@ Three planes, one memory:
 ```yaml
 # profile cordis.patch.yml
 - id: memory-hub
-  name: 'dsh-memory'
+  name: '@zheexinn/dsh-memory'
   config:
     storage:
       root: 'D:/_Tools/Obsidian/memory'   # default: ${DSH_HOME|~/.dsh}/storages
@@ -108,7 +108,7 @@ Three planes, one memory:
       token: 'a-long-random-token'
 
 - id: memory-agent
-  name: 'dsh-memory/agent'
+  name: '@zheexinn/dsh-memory/agent'
   config:
     recallTopK: 5
     recallBudget: 1200
@@ -168,7 +168,7 @@ The bundled **zero-dependency MCP server** bridges those endpoints to any MCP cl
 ```jsonc
 {
   "mcpServers": {
-    "dsh-memory": {
+    "@zheexinn/dsh-memory": {
       "command": "node",
       "args": [
         "<repo>/scripts/mcp-server.mjs",
@@ -201,7 +201,7 @@ The agent row mounts globally by default. To scope it to specific agent presets,
 
 ```yaml
 - id: memory-agent
-  name: 'dsh-memory/agent'
+  name: '@zheexinn/dsh-memory/agent'
   config: { recallTopK: 5, recallBudget: 1200 }
 ```
 

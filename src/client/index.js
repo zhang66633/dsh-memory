@@ -13,7 +13,7 @@ import { Component, createElement as h, useEffect, useMemo, useRef, useState } f
 import cssText from './panel.css'
 
 /** Plugin name; also the client bundle id. */
-export const name = 'dsh-memory'
+export const name = '@zheexinn/dsh-memory'
 
 /** Required services: the settings slot registry. */
 export const inject = ['slots']

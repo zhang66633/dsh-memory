@@ -43,8 +43,8 @@
 ```jsonc
 // ~/.dsh/profiles/web/package.json
 {
-  "dependencies": { "dsh-memory": "link:<仓库路径>" },
-  "dsh": { "profile": { "bundles": ["dsh-memory"] } }
+  "dependencies": { "@zheexinn/dsh-memory": "link:<仓库路径>" },
+  "dsh": { "profile": { "bundles": ["@zheexinn/dsh-memory"] } }
 }
 ```
 
@@ -93,7 +93,7 @@ flowchart LR
 ```yaml
 # profile cordis.patch.yml
 - id: memory-hub
-  name: 'dsh-memory'
+  name: '@zheexinn/dsh-memory'
   config:
     storage:
       root: 'D:/_Tools/Obsidian/memory'   # 默认 ${DSH_HOME|~/.dsh}/storages
@@ -108,7 +108,7 @@ flowchart LR
       token: '足够长的随机串'
 
 - id: memory-agent
-  name: 'dsh-memory/agent'
+  name: '@zheexinn/dsh-memory/agent'
   config:
     recallTopK: 5
     recallBudget: 1200
@@ -167,7 +167,7 @@ npm run memory-cli -- list --scope user      # recall / remember / forget / rest
 ```jsonc
 {
   "mcpServers": {
-    "dsh-memory": {
+    "@zheexinn/dsh-memory": {
       "command": "node",
       "args": [
         "<仓库路径>/scripts/mcp-server.mjs",
@@ -200,7 +200,7 @@ agent 行默认全局挂载。要限定到特定 agent preset：从全局补丁�
 
 ```yaml
 - id: memory-agent
-  name: 'dsh-memory/agent'
+  name: '@zheexinn/dsh-memory/agent'
   config: { recallTopK: 5, recallBudget: 1200 }
 ```
 
