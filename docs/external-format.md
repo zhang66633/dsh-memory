@@ -71,6 +71,7 @@ score = importance × confidence × 2^(−(now − last_accessed_at) / (half_lif
 2. **原子写**：先写同目录临时文件再 rename 覆盖，避免读者看到半截 JSON（插件后端即如此实现）。
 3. **schema 校验**：dsh 启动载入时会校验每条的 `id/type/content/scope/importance/confidence/tombstone` 基本形状；写坏会让 `memory` 域拒绝打开（报 `invalid-record`），此时修复文件或删除该域文件即可（数据丢失风险自负）。
 4. **版本**：`unit.version` 必须保持 `1`；插件升级若变更格式会随之提升，外部工具应读取该字段做兼容判断。
+5. **永久删除（purge）**：常规删除是软删除（§4 置 `tombstone: true`）；显式的 purge 才**物理删除键**——从 `entries` 对象里移除该 id（不可恢复，仅备份可找回）。外部工具默认应只用软删除；确需 purge 时先导出备份。
 
 ## 6. 参考实现：memory-cli（外部 agent 命令行工具）
 

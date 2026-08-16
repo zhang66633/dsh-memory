@@ -145,14 +145,23 @@ async function main() {
   assert.ok(graphData.graph.edges.every((edge) => edge.weight >= 2), 'one-off edges stay out of the core')
   assert.ok(graphData.graph.nodes.every((node) => node.degree >= 1), 'core nodes are connected')
 
-  assert.equal(routes.length, 7, 'panel API routes registered (stats/list/graph/remember/forget/unarchive/export)')
+  assert.equal(routes.length, 8, 'panel API routes registered (stats/list/graph/remember/forget/purge/unarchive/export)')
   assert.ok(!routes.some((route) => route.path.startsWith('/memory/remote/')), 'remote routes off by default')
+
+  // hard delete: purge removes the record entirely, no tombstone
+  const doomed = await memory.remember({ content: '将被永久删除', type: 'episodic' })
+  assert.ok(records.get(doomed.id) !== undefined)
+  const purged = await memory.purge(doomed.id)
+  assert.equal(purged.ok, true)
+  assert.equal(records.get(doomed.id), undefined, 'purge removes the record entirely')
+  const missing = await memory.purge(doomed.id)
+  assert.equal(missing.ok, false, 'purging a missing id fails cleanly')
 
   // ── P3 remote API: token gate on every endpoint ──
   const remote = await mountHub({ server: { enabled: true, token: 'sekret' } })
   const remotePaths = remote.routes.map((route) => route.path)
   for (const path of ['/memory/remote/stats', '/memory/remote/list', '/memory/remote/recall',
-    '/memory/remote/remember', '/memory/remote/forget', '/memory/remote/export']) {
+    '/memory/remote/remember', '/memory/remote/forget', '/memory/remote/purge', '/memory/remote/export']) {
     assert.ok(remotePaths.includes(path), `remote route ${path} registered`)
   }
   const rememberRoute = remote.routes.find((route) => route.path === '/memory/remote/remember')

@@ -13,6 +13,7 @@
  *   node scripts/memory-cli.mjs recall [query] [--top n] [--scope s]
  *   node scripts/memory-cli.mjs remember --content "…" [--type t] [--scope s] [--importance 0.6] [--confidence 1]
  *   node scripts/memory-cli.mjs forget <id> | restore <id>
+ *   node scripts/memory-cli.mjs purge <id>     # 永久删除（不可恢复）
  *   node scripts/memory-cli.mjs stats
  *   node scripts/memory-cli.mjs export
  * Env: MEMORY_FILE overrides the file path; DSH_HOME moves the default root.
@@ -181,7 +182,20 @@ async function main() {
     return
   }
 
-  fail(`未知命令 '${command}'（支持 list/recall/stats/export/remember/forget/restore）`)
+  if (command === 'purge') {
+    const id = rest[0]
+    if (!id) fail('purge 需要记忆 id')
+    const { path, mtimeMs, document } = await loadMemoryFile(FILE)
+    const entries = entriesOf(document)
+    if (entries[id] === undefined) fail(`找不到记忆 '${id}'`)
+    delete entries[id]
+    document.tables = { ...document.tables, [ENTRIES_TABLE]: entries }
+    await atomicWrite(path, serializeDocument(document), mtimeMs)
+    console.log(`已永久删除: ${id}`)
+    return
+  }
+
+  fail(`未知命令 '${command}'（支持 list/recall/stats/export/remember/forget/restore/purge）`)
 }
 
 main().catch((error) => fail(error?.message ?? error))

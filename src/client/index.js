@@ -47,7 +47,7 @@ const metaOf = (entry) => [
   new Date(entry.created_at).toLocaleString(),
 ].join(' · ')
 
-function EntryItem({ entry, action }) {
+function EntryItem({ entry, action, purgeAction }) {
   return h('div', {
     className: `mem-item${entry.unverified === true ? ' mem-item-unverified' : ''}`,
   },
@@ -60,6 +60,10 @@ function EntryItem({ entry, action }) {
       className: 'mem-del', title: action.title,
       onClick: () => { void action.run() },
     }, action.glyph),
+    purgeAction && h('button', {
+      className: 'mem-del mem-del-danger', title: purgeAction.title,
+      onClick: () => { void purgeAction.run() },
+    }, '🗑'),
   )
 }
 
@@ -338,6 +342,7 @@ function MemoryPanel() {
   const [importance, setImportance] = useState('0.6')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [purgeTarget, setPurgeTarget] = useState(null)
 
   const refresh = async () => {
     try {
@@ -402,6 +407,22 @@ function MemoryPanel() {
     })
     await Promise.all([refresh(), refreshArchive()])
   }
+
+  const purge = async (id) => {
+    await fetch(`${API}/purge`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setPurgeTarget(null)
+    await Promise.all([refresh(), refreshArchive()])
+  }
+
+  const purgeConfirm = (entry) => purgeTarget === entry.id && h('div', { className: 'mem-item mem-purge-confirm' },
+    h('span', { className: 'mem-purge-text' }, '永久删除？不可恢复'),
+    h('button', { className: 'mem-btn', onClick: () => { void purge(entry.id) } }, '确认删除'),
+    h('button', { className: 'mem-btn', onClick: () => setPurgeTarget(null) }, '取消'),
+  )
 
   const exportAll = async () => {
     const res = await fetch(`${API}/export`)
@@ -476,19 +497,27 @@ function MemoryPanel() {
     tab === 'timeline' && h('div', { className: 'mem-list' },
       entries.length === 0
         ? h('div', { className: 'mem-empty' }, '还没有记忆。写一条，或让模型用 memory_remember 工具。')
-        : entries.map((entry) => h(EntryItem, {
-          key: entry.id, entry,
-          action: { title: '删除（软删除）', glyph: '✕', run: () => forget(entry.id) },
-        })),
+        : entries.map((entry) => [
+          h(EntryItem, {
+            key: entry.id, entry,
+            action: { title: '删除（软删除，可在归档恢复）', glyph: '✕', run: () => forget(entry.id) },
+            purgeAction: { title: '永久删除（不可恢复）', run: () => setPurgeTarget(entry.id) },
+          }),
+          purgeConfirm(entry),
+        ]),
     ),
     tab === 'relations' && h(RelationsView, { entries }),
     tab === 'archive' && h('div', { className: 'mem-list' },
       archived.length === 0
         ? h('div', { className: 'mem-empty' }, '没有归档记忆。遗忘衰减到阈值以下的条目会自动归档（默认每 10 个回合检查一次）。')
-        : archived.map((entry) => h(EntryItem, {
-          key: entry.id, entry,
-          action: { title: '恢复到时间线', glyph: '↩', run: () => unarchive(entry.id) },
-        })),
+        : archived.map((entry) => [
+          h(EntryItem, {
+            key: entry.id, entry,
+            action: { title: '恢复到时间线', glyph: '↩', run: () => unarchive(entry.id) },
+            purgeAction: { title: '永久删除（不可恢复）', run: () => setPurgeTarget(entry.id) },
+          }),
+          purgeConfirm(entry),
+        ]),
     ),
   )
 }

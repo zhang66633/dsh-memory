@@ -155,7 +155,7 @@ The hub registers its own file backend on the harness storage hub. The entire me
 - The on-disk format is documented ([docs/external-format.md](docs/external-format.md)) and stable: external agents can read it directly, and the bundled CLI writes it with the exact plugin semantics (dedup merge, soft delete, atomic writes with optimistic concurrency).
 
 ```bash
-npm run memory-cli -- list --scope user      # recall / remember / forget / restore / stats / export
+npm run memory-cli -- list --scope user      # recall / remember / forget / restore / purge / stats / export
 ```
 
 ## 🌐 Remote access & MCP
@@ -169,6 +169,7 @@ Enable the token-gated remote API (`server.enabled` + `server.token`) and any ex
 | `GET /memory/remote/recall?query=&scope=&top_k=` | fusion recall |
 | `POST /memory/remote/remember` | write |
 | `POST /memory/remote/forget` | soft delete |
+| `POST /memory/remote/purge` | permanently delete `{id}` (irreversible) |
 | `GET /memory/remote/export` | full export |
 
 The bundled **zero-dependency MCP server** bridges those endpoints to any MCP client:

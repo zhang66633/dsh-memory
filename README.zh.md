@@ -154,7 +154,7 @@ Hub 在 harness 存储中枢上注册**自己的文件后端**。整个记忆库
 - 落盘格式已文档化（[docs/external-format.md](docs/external-format.md)）且稳定：外部智能体可直接读取，自带 CLI 以与插件完全相同的语义写入（去重合并、软删除、原子写 + 乐观并发保护）。
 
 ```bash
-npm run memory-cli -- list --scope user      # recall / remember / forget / restore / stats / export
+npm run memory-cli -- list --scope user      # recall / remember / forget / restore / purge / stats / export
 ```
 
 ## 🌐 远程访问与 MCP
@@ -168,6 +168,7 @@ npm run memory-cli -- list --scope user      # recall / remember / forget / rest
 | `GET /memory/remote/recall?query=&scope=&top_k=` | 融合召回 |
 | `POST /memory/remote/remember` | 写入 |
 | `POST /memory/remote/forget` | 软删除 |
+| `POST /memory/remote/purge` | 永久删除 `{id}`（不可恢复） |
 | `GET /memory/remote/export` | 全量导出 |
 
 自带的**零依赖 MCP 服务**把这些端点桥接给任何 MCP 客户端：
