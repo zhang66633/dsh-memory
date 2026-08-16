@@ -52,6 +52,21 @@ const parenPath = extractRuleEntities('link:D:/_Projects/x）经 pnpm install')
 const pathEntity = parenPath.find(({ kind }) => kind === 'path')
 assert.ok(pathEntity !== undefined && pathEntity.text === 'D:/_Projects/x', 'path stops at full-width paren')
 
+// apostrophes are not quote delimiters: the quoted entity is 哲, not "s collaborator…"
+const apostrophe = extractRuleEntities('The user\'s collaborator is named "哲".')
+const quotedEntity = apostrophe.find(({ kind }) => kind === 'quoted')
+assert.ok(quotedEntity !== undefined && quotedEntity.text === '哲', 'apostrophe does not open a quoted entity')
+
+// CamelCase prose needs corpus repetition; compounds/acronyms stay permissive
+const camelGraph = buildGraph([{ id: 'c0', content: '用 New-Item -ItemType Junction -Target 重建 BOM' }])
+assert.ok(!camelGraph.nodes.has('New-Item'), 'one-off CamelCase dropped')
+assert.ok(!camelGraph.nodes.has('ItemType'), 'one-off CamelCase dropped')
+assert.ok(camelGraph.nodes.has('BOM'), 'all-caps acronym kept once')
+
+// relative-link hints are not unix paths (.. segments have no alphanumeric)
+const relPath = extractRuleEntities('改用 link:../../_Projects/... 相对形式')
+assert.ok(!relPath.some(({ kind }) => kind === 'path'), 'relative-link hint is not a path')
+
 const q = queryEntities('BOM 问题')
 assert.ok(q.includes('BOM'), 'query entities extracted')
 const e0 = { id: 'e0' }
