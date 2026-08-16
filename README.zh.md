@@ -40,6 +40,14 @@
 
 ## 🚀 快速开始
 
+**从 npm（推荐——钉精确版本）**：
+
+```bash
+dsh plugin --profile web add @zheexinn/dsh-memory@0.5.2   # 然后重启 dsh web
+```
+
+**从源码（本地开发）**：
+
 ```jsonc
 // ~/.dsh/profiles/web/package.json
 {

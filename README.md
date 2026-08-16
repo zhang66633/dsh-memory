@@ -40,6 +40,14 @@
 
 ## 🚀 Quick start
 
+**From npm** (recommended — pin the exact version):
+
+```bash
+dsh plugin --profile web add @zheexinn/dsh-memory@0.5.2   # then restart dsh web
+```
+
+**From source** (local development):
+
 ```jsonc
 // ~/.dsh/profiles/web/package.json
 {
