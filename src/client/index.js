@@ -64,28 +64,32 @@ function EntryItem({ entry, action }) {
 }
 
 const WIDTH = 640
-const HEIGHT = 380
+const HEIGHT = 400
 
-/** Light force simulation: repulsion + springs + centering, settled synchronously. */
+/**
+ * Light force simulation: repulsion + springs + centering, settled
+ * synchronously. Parameters tuned for the ≤30-node stable core: strong
+ * repulsion and a wide rest length keep labels from piling up.
+ */
 function layout(nodes, edges, width, height) {
   const positions = new Map(nodes.map((node, i) => {
     const angle = (i / Math.max(1, nodes.length)) * Math.PI * 2
-    return [node.text, { x: width / 2 + Math.cos(angle) * 120, y: height / 2 + Math.sin(angle) * 120 }]
+    return [node.text, { x: width / 2 + Math.cos(angle) * 140, y: height / 2 + Math.sin(angle) * 140 }]
   }))
-  for (let step = 0; step < 240; step++) {
+  for (let step = 0; step < 320; step++) {
     const forces = new Map()
     for (const node of nodes) forces.set(node.text, { x: 0, y: 0 })
     for (const a of nodes) {
       const pa = positions.get(a.text)
-      forces.get(a.text).x += (width / 2 - pa.x) * 0.01
-      forces.get(a.text).y += (height / 2 - pa.y) * 0.01
+      forces.get(a.text).x += (width / 2 - pa.x) * 0.012
+      forces.get(a.text).y += (height / 2 - pa.y) * 0.012
       for (const b of nodes) {
         if (a.text === b.text) continue
         const pb = positions.get(b.text)
         const dx = pa.x - pb.x
         const dy = pa.y - pb.y
         const dist = Math.sqrt(Math.max(64, dx * dx + dy * dy))
-        const push = 1400 / Math.max(64, dist * dist)
+        const push = 3600 / Math.max(64, dist * dist)
         forces.get(a.text).x += (dx / dist) * push
         forces.get(a.text).y += (dy / dist) * push
       }
@@ -96,7 +100,7 @@ function layout(nodes, edges, width, height) {
       const dx = pb.x - pa.x
       const dy = pb.y - pa.y
       const dist = Math.sqrt(dx * dx + dy * dy) || 1
-      const pull = (dist - 110) * 0.06
+      const pull = (dist - 150) * 0.05
       const fx = (dx / dist) * pull
       const fy = (dy / dist) * pull
       forces.get(edge.source).x += fx
@@ -107,8 +111,8 @@ function layout(nodes, edges, width, height) {
     for (const node of nodes) {
       const p = positions.get(node.text)
       const f = forces.get(node.text)
-      p.x = Math.min(width - 12, Math.max(12, p.x + f.x * 0.6))
-      p.y = Math.min(height - 12, Math.max(12, p.y + f.y * 0.6))
+      p.x = Math.min(width - 16, Math.max(16, p.x + f.x * 0.5))
+      p.y = Math.min(height - 16, Math.max(16, p.y + f.y * 0.5))
     }
   }
   return positions
@@ -224,9 +228,12 @@ function GraphCanvas({ graph, entries }) {
       }),
       visible.nodes.map((node) => {
         const p = positions.get(node.text)
-        const radius = Math.min(20, 8 + node.count * 1.5)
+        const radius = Math.min(18, 6 + node.count * 2.5)
         const active = selected?.kind === 'node' && selected.text === node.text
         const dimmed = selected !== null && !focus.has(node.text)
+        // Label tiering: only established entities (or the selection) get
+        // visible labels; the rest stay dots with hover tooltips.
+        const showLabel = node.count >= 2 || active
         return h('g', {
           key: node.text,
           className: `mem-node${active ? ' mem-node-active' : ''}${dimmed ? ' mem-dim' : ''} ${KIND_CLASS[node.kind] ?? 'mem-kind-label'}`,
@@ -234,7 +241,7 @@ function GraphCanvas({ graph, entries }) {
         },
           h('title', null, `${node.text}（${KIND_LABEL[node.kind] ?? node.kind}）· 出现在 ${node.count} 条记忆 · 拖动可调整位置`),
           h('circle', { cx: p.x, cy: p.y, r: radius }),
-          h('text', {
+          showLabel && h('text', {
             x: p.x, y: p.y + radius + 12, textAnchor: 'middle',
             className: 'mem-node-label',
           }, node.text.length > 16 ? `${node.text.slice(0, 15)}…` : node.text),
@@ -275,15 +282,11 @@ function RelationsView({ entries }) {
 
   if (graph === null && !error) return h('div', { className: 'mem-empty' }, '关系加载中…')
   if (error) return h('div', { className: 'mem-error' }, error)
-  if (graph.nodes.length === 0) {
+  if (graph.cards.length === 0) {
     return h('div', { className: 'mem-empty' }, '还没有足够的实体。多写几条含实体（路径/工具名/项目名）的记忆。')
   }
 
-  const nodes = [...graph.nodes].sort((a, b) => b.count - a.count || b.lastSeen - a.lastSeen)
-  const neighborsOf = (text) => graph.edges
-    .filter((edge) => edge.source === text || edge.target === text)
-    .map((edge) => ({ other: edge.source === text ? edge.target : edge.source, weight: edge.weight }))
-    .sort((a, b) => b.weight - a.weight)
+  const cards = [...graph.cards].sort((a, b) => b.count - a.count || b.lastSeen - a.lastSeen)
 
   return h('div', { className: 'mem-relations' },
     h('div', { className: 'mem-tabs' },
@@ -297,8 +300,8 @@ function RelationsView({ entries }) {
       }, '关系图谱'),
     ),
     view === 'cards' && h('div', { className: 'mem-card-list' },
-      nodes.slice(0, 40).map((node) => {
-        const neighbors = neighborsOf(node.text)
+      cards.map((node) => {
+        const neighbors = node.relations ?? []
         const related = entries.filter((entry) => entry.content.includes(node.text)).slice(0, 5)
         return h('div', { key: node.text, className: 'mem-entity-card' },
           h('div', { className: 'mem-entity-head' },
@@ -320,7 +323,7 @@ function RelationsView({ entries }) {
         )
       }),
     ),
-    view === 'graph' && h(GraphCanvas, { graph, entries }),
+    view === 'graph' && h(GraphCanvas, { graph: graph.graph, entries }),
   )
 }
 

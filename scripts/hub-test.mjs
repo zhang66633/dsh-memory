@@ -134,10 +134,16 @@ async function main() {
   const statsAfter = await memory.stats()
   assert.ok('archived' in statsAfter, 'stats reports the archived total')
 
-  // P2 graph data: bounded nodes/edges for the panel
+  // P2 graph data: cards carry embedded relations; the core graph keeps
+  // only stable (weight ≥ 2) co-occurrence edges
+  await memory.remember({ content: 'dsh-memory 的 BOM 问题复盘', type: 'episodic' })
   const graphData = await memory.graphData()
-  assert.ok(Array.isArray(graphData.nodes) && Array.isArray(graphData.edges), 'graph data shape')
-  assert.ok(graphData.nodes.some((node) => node.text === 'dsh-memory'), 'shared entity appears in graph data')
+  assert.ok(Array.isArray(graphData.cards) && Array.isArray(graphData.graph.nodes), 'graph data shape')
+  assert.ok(graphData.cards.some((node) => node.text === 'dsh-memory'), 'shared entity appears in cards')
+  assert.ok(graphData.cards.some((node) => Array.isArray(node.relations)), 'cards embed their relations')
+  assert.ok(graphData.graph.edges.some((edge) => edge.weight >= 2), 'core keeps stable edges')
+  assert.ok(graphData.graph.edges.every((edge) => edge.weight >= 2), 'one-off edges stay out of the core')
+  assert.ok(graphData.graph.nodes.every((node) => node.degree >= 1), 'core nodes are connected')
 
   assert.equal(routes.length, 7, 'panel API routes registered (stats/list/graph/remember/forget/unarchive/export)')
   assert.ok(!routes.some((route) => route.path.startsWith('/memory/remote/')), 'remote routes off by default')
